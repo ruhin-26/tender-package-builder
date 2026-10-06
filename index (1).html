@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tender Document Package Builder</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --navy: #143C8C;
+    --navy-dark: #0E2A5C;
+    --yellow: #FCEE21;
+    --yellow-2: #F9DD16;
+    --bg: #F4F6F9;
+    --line: #EEF1F5;
+    --border: #D5DBE4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px 12px 40px;
+    background: var(--bg);
+    color: #1F2A3C;
+    font-family: Arial, "Segoe UI", "Noto Sans Bengali", "Nirmala UI", Helvetica, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* ---------- App container ---------- */
+  .app {
+    max-width: 960px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 24px rgba(20, 60, 140, 0.12);
+    overflow: hidden;
+  }
+  .app-body { padding: 4px 22px 28px; }
+
+  /* ---------- Yellow header band ---------- */
+  .app-header {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #FCEE21 0%, #F9DD16 100%);
+    color: var(--navy-dark);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+  }
+  .app-header::before,
+  .app-header::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.28);
+    pointer-events: none;
+  }
+  .app-header::before { width: 170px; height: 170px; right: -40px; top: -90px; }
+  .app-header::after  { width: 100px; height: 100px; right: 150px; bottom: -60px; }
+  .app-header > * { position: relative; z-index: 1; }
+  h1 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: bold;
+    color: var(--navy-dark);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h1::before {
+    content: "";
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--navy);
+    box-shadow: inset 0 0 0 8px var(--navy), inset 0 0 0 30px var(--navy);
+    background-image: radial-gradient(circle at center, var(--yellow) 0 6px, var(--navy) 7px);
+  }
+
+  /* ---------- Language buttons ---------- */
+  #langBar { display: flex; gap: 8px; }
+  #langBar button {
+    background: #fff;
+    color: var(--navy);
+    border: 2px solid var(--navy);
+    padding: 6px 18px;
+    font-size: 14px;
+  }
+  #langBar button:hover { background: #EAF0FB; }
+  #langBar button.active { background: var(--navy); color: #fff; }
+  #langBar button.active:hover { background: var(--navy-dark); }
+
+  /* ---------- Cards & headings ---------- */
+  .card,
+  #tenderBox:not(:empty),
+  #reqBox:not(:empty) {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(20, 60, 140, 0.08);
+    padding: 16px;
+    margin: 20px 0;
+  }
+  #reqBox:not(:empty) { overflow-x: auto; }
+  h2 {
+    display: flex;
+    align-items: center;
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--navy);
+  }
+  h2::before {
+    content: "";
+    width: 6px;
+    height: 18px;
+    margin-right: 10px;
+    border-radius: 3px;
+    background: var(--yellow-2);
+    box-shadow: 2px 0 0 var(--navy);
+  }
+
+  /* ---------- Buttons ---------- */
+  button {
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 14px;
+    color: #fff;
+    background: var(--navy);
+    border: 0;
+    border-radius: 999px;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  button:hover { background: var(--navy-dark); }
+  button:focus-visible { outline: 3px solid rgba(20, 60, 140, 0.35); outline-offset: 2px; }
+  button:disabled,
+  button:disabled:hover {
+    background: #D8DEE9;
+    color: #8A94A6;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .actions { margin: 4px 0 0; }
+  #genBtn {
+    padding: 13px 34px;
+    font-size: 16px;
+    box-shadow: 0 4px 12px rgba(20, 60, 140, 0.25);
+  }
+
+  /* ---------- Native inputs ---------- */
+  input[type="file"] {
+    font-family: inherit;
+    font-size: 14px;
+    color: #4A5668;
+    max-width: 100%;
+  }
+  input[type="file"]::file-selector-button {
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 14px;
+    color: #fff;
+    background: var(--navy);
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 18px;
+    margin-right: 12px;
+    cursor: pointer;
+  }
+  input[type="file"]::file-selector-button:hover { background: var(--navy-dark); }
+  select,
+  input[type="date"] {
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--navy);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    max-width: 100%;
+  }
+  select:focus,
+  input[type="date"]:focus {
+    outline: none;
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(20, 60, 140, 0.15);
+  }
+
+  /* ---------- Tables ---------- */
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  #reqBox table { min-width: 760px; }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 14px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    background: var(--navy);
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+  }
+  th:first-child { border-top-left-radius: 10px; }
+  th:last-child  { border-top-right-radius: 10px; }
+  tr:last-child td { border-bottom: 0; }
+
+  #tenderInfo { border: 1px solid #E6EAF1; border-radius: 10px; overflow: hidden; }
+  #tenderInfo td:first-child {
+    width: 220px;
+    font-weight: bold;
+    color: var(--navy);
+    background: #F4F6FA;
+  }
+
+  /* row highlights */
+  tr.row-red   { background: #FFF7F7; }
+  tr.row-green { background: #F4FBF5; }
+  tr.row-gray  { background: #FAFBFC; }
+  tr.row-red   td:first-child { box-shadow: inset 3px 0 0 #E57373; }
+  tr.row-green td:first-child { box-shadow: inset 3px 0 0 #66BB6A; }
+  tr.row-gray  td:first-child { box-shadow: inset 3px 0 0 #C5CCD6; }
+
+  /* ---------- Status badges ---------- */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .red    { background: #FDE8E8; color: #C62828; }
+  .green  { background: #E3F6E8; color: #1E7E34; }
+  .gray   { background: #ECEFF3; color: #5F6B7A; }
+  .orange { background: #FFF4DE; color: #B26A00; }
+
+  /* ---------- Messages ---------- */
+  .err { color: #C62828; margin: 6px 0 0; font-size: 14px; }
+  .muted { color: #6B7686; }
+  .grey-file { color: #9AA4B2; }
+  #fileList p { margin: 0; }
+  #jsonMsg:empty, #uploadMsgs:empty, #genMsg:empty { display: none; }
+
+  /* ---------- Blockers ---------- */
+  #blockers {
+    margin: 18px 0 0;
+    padding: 14px 16px;
+    background: #fff;
+    color: #C62828;
+    font-weight: bold;
+    border: 1px solid var(--line);
+    border-left: 3px solid #1E7E34;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(20, 60, 140, 0.08);
+  }
+  #blockers:has(ul) { border-left-color: var(--navy); }
+  #blockers:has(.muted) { border-left-color: #B8C0CC; }
+  #blockers ul { margin: 6px 0 0 20px; padding: 0; font-weight: normal; }
+  #blockers li { margin: 3px 0; }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 640px) {
+    body { padding: 12px 6px 28px; }
+    .app-body { padding: 4px 12px 22px; }
+    .app-header { padding: 16px; }
+    h1 { font-size: 18px; }
+    #tenderInfo td:first-child { width: 120px; }
+    .card, #tenderBox:not(:empty), #reqBox:not(:empty) { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="app-header">
+    <h1 data-i="title"></h1>
+    <div id="langBar">
+      <button id="btnEn" onclick="setLang('en')">English</button>
+      <button id="btnBn" onclick="setLang('bn')">বাংলা</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+
+    <div class="card">
+      <h2 data-i="loadReq"></h2>
+      <input type="file" id="reqInput" accept=".json,application/json">
+      <div id="jsonMsg"></div>
+    </div>
+
+    <div id="tenderBox"></div>
+
+    <div class="card">
+      <h2 data-i="uploadPdfs"></h2>
+      <input type="file" id="pdfInput" multiple>
+      <div id="uploadMsgs"></div>
+    </div>
+
+    <div class="card">
+      <div id="fileList"></div>
+    </div>
+
+    <div id="reqBox"></div>
+
+    <div class="actions">
+      <button id="genBtn" onclick="generate()" disabled data-i="generate"></button>
+    </div>
+    <div id="blockers"></div>
+    <div id="genMsg" class="err"></div>
+
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ---------- Strings ----------
+var STR = {
+  en: {
+    title: 'Tender Document Package Builder',
+    loadReq: '1. Load requirements.json',
+    uploadPdfs: '2. Upload bidder PDFs (max 30 files, 50 MB combined)',
+    matchReq: '3. Match files to requirements',
+    tenderId: 'Tender ID', tTitle: 'Title', entity: 'Procuring entity', bidder: 'Bidder', deadline: 'Submission deadline',
+    colOrder: '#', colId: 'ID', colTitle: 'Title', colMand: 'Mandatory', colExp: 'Expiry doc',
+    colStatus: 'Status', colFile: 'File', colDate: 'Expiry date',
+    yes: 'Yes', no: 'No',
+    stMissing: 'Missing', stNeedDate: 'Expiry date needed', stExpired: 'Expired', stNotProvided: 'Not provided', stOk: 'OK',
+    none: '— none —', remove: 'Remove', pages: 'pages', dupOf: 'DUPLICATE of {n}',
+    errNotPdf: '{n}: Not a PDF',
+    errCount: 'Too many files: maximum 30 files allowed.',
+    errSize: 'Files too large: maximum 50 MB combined.',
+    errRead: '{n}: Cannot read file (damaged or password-protected)',
+    errJson: 'Cannot read requirements.json: invalid file.',
+    errGen: 'Could not generate package: {n}',
+    generate: 'Generate Package',
+    blockers: 'Blocking issues:', noBlockers: 'No blocking issues.',
+    loadFirst: 'Load requirements.json first.',
+    uploaded: 'Uploaded files', noFiles: 'No files uploaded.'
+  },
+  bn: {
+    title: 'টেন্ডার ডকুমেন্ট প্যাকেজ বিল্ডার',
+    loadReq: '১. requirements.json লোড করুন',
+    uploadPdfs: '২. দরদাতার PDF আপলোড করুন (সর্বোচ্চ ৩০টি ফাইল, মোট ৫০ এমবি)',
+    matchReq: '৩. ফাইলের সাথে চাহিদা মেলান',
+    tenderId: 'টেন্ডার আইডি', tTitle: 'শিরোনাম', entity: 'ক্রয়কারী প্রতিষ্ঠান', bidder: 'দরদাতা', deadline: 'জমাদানের শেষ তারিখ',
+    colOrder: 'ক্রম', colId: 'আইডি', colTitle: 'শিরোনাম', colMand: 'বাধ্যতামূলক', colExp: 'মেয়াদ আছে',
+    colStatus: 'অবস্থা', colFile: 'ফাইল', colDate: 'মেয়াদ শেষের তারিখ',
+    yes: 'হ্যাঁ', no: 'না',
+    stMissing: 'অনুপস্থিত', stNeedDate: 'মেয়াদের তারিখ প্রয়োজন', stExpired: 'মেয়াদোত্তীর্ণ', stNotProvided: 'দেওয়া হয়নি', stOk: 'ঠিক আছে',
+    none: '— কিছু নয় —', remove: 'মুছুন', pages: 'পৃষ্ঠা', dupOf: 'ডুপ্লিকেট: {n}',
+    errNotPdf: '{n}: PDF নয়',
+    errCount: 'অনেক বেশি ফাইল: সর্বোচ্চ ৩০টি ফাইল অনুমোদিত।',
+    errSize: 'ফাইল অনেক বড়: মোট সর্বোচ্চ ৫০ এমবি।',
+    errRead: '{n}: ফাইল পড়া যায়নি (নষ্ট বা পাসওয়ার্ড-সুরক্ষিত)',
+    errJson: 'requirements.json পড়া যায়নি: ফাইলটি সঠিক নয়।',
+    errGen: 'প্যাকেজ তৈরি করা যায়নি: {n}',
+    generate: 'প্যাকেজ তৈরি করুন',
+    blockers: 'বাধাসমূহ:', noBlockers: 'কোনো বাধা নেই।',
+    loadFirst: 'আগে requirements.json লোড করুন।',
+    uploaded: 'আপলোড করা ফাইল', noFiles: 'কোনো ফাইল আপলোড হয়নি।'
+  }
+};
+
+// ---------- State ----------
+var lang = 'en';
+var tender = null;       // {tender_id, title, procuring_entity, bidder, submission_deadline}
+var reqs = [];           // sorted requirements
+var files = [];          // {id, name, buffer, pages, hash, dupOf}
+var nextFileId = 1;
+var match = {};          // reqId -> fileId
+var expiry = {};         // reqId -> "YYYY-MM-DD"
+var uploadMsgs = [];     // {k, n}
+var jsonError = false;
+
+var MAX_FILES = 30;
+var MAX_BYTES = 50 * 1024 * 1024;
+
+function t(k, n) {
+  var s = STR[lang][k] || k;
+  return n !== undefined ? s.replace('{n}', n) : s;
+}
+function esc(s) {
+  return String(s === undefined || s === null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function reqTitle(r) {
+  if (lang === 'bn') return r.title_bn || r.title_en || '';
+  return r.title_en || r.title_bn || '';
+}
+function deadlineDate() {
+  return String(tender.submission_deadline || '').slice(0, 10);
+}
+function todayStr() {
+  var d = new Date();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + m + '-' + day;
+}
+
+// ---------- Language ----------
+function setLang(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  render();
+}
+
+// ---------- Load requirements.json ----------
+document.getElementById('reqInput').addEventListener('change', onLoadJson);
+
+async function onLoadJson(ev) {
+  var f = ev.target.files[0];
+  ev.target.value = '';
+  if (!f) return;
+  try {
+    var data = JSON.parse(await f.text());
+    var src = data.tender || data;
+    var arr = Array.isArray(data) ? data : (data.requirements || data.documents || []);
+    if (!Array.isArray(arr) || arr.length === 0) throw new Error('no requirements');
+    tender = {
+      tender_id: src.tender_id || '',
+      title: src.title || '',
+      procuring_entity: src.procuring_entity || '',
+      bidder: src.bidder || '',
+      submission_deadline: src.submission_deadline || ''
+    };
+    reqs = arr.map(function (r) {
+      return {
+        id: String(r.id),
+        order: Number(r.order),
+        title_en: r.title_en || r.title || '',
+        title_bn: r.title_bn || '',
+        mandatory: r.mandatory === true || r.mandatory === 'true',
+        has_expiry: r.has_expiry === true || r.has_expiry === 'true'
+      };
+    });
+    reqs.sort(function (a, b) { return a.order - b.order; });
+    match = {};
+    expiry = {};
+    jsonError = false;
+  } catch (e) {
+    tender = null;
+    reqs = [];
+    jsonError = true;
+  }
+  render();
+}
+
+// ---------- Upload ----------
+document.getElementById('pdfInput').addEventListener('change', onUpload);
+
+async function sha256(buf) {
+  var h = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(h)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+function isPdf(buf) {
+  if (buf.byteLength < 4) return false;
+  return String.fromCharCode.apply(null, new Uint8Array(buf, 0, 4)) === '%PDF';
+}
+
+async function onUpload(ev) {
+  var list = Array.from(ev.target.files);
+  ev.target.value = '';
+  uploadMsgs = [];
+  if (list.length === 0) { render(); return; }
+
+  if (files.length + list.length > MAX_FILES) {
+    uploadMsgs.push({ k: 'errCount' });
+    render();
+    return;
+  }
+  var total = list.reduce(function (a, f) { return a + f.size; }, 0);
+  files.forEach(function (f) { total += f.buffer.byteLength; });
+  if (total > MAX_BYTES) {
+    uploadMsgs.push({ k: 'errSize' });
+    render();
+    return;
+  }
+
+  for (var i = 0; i < list.length; i++) {
+    var f = list[i];
+    var buf = await f.arrayBuffer();
+    if (!isPdf(buf)) {
+      uploadMsgs.push({ k: 'errNotPdf', n: f.name });
+      continue;
+    }
+    var pages = 0;
+    try {
+      var doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise;
+      pages = doc.numPages;
+      doc.destroy();
+    } catch (e) {
+      uploadMsgs.push({ k: 'errRead', n: f.name });
+      continue;
+    }
+    var hash = await sha256(buf);
+    files.push({ id: nextFileId++, name: f.name, buffer: buf, pages: pages, hash: hash, dupOf: null });
+  }
+  markDuplicates();
+  render();
+}
+
+function removeFile(id) {
+  files = files.filter(function (f) { return f.id !== id; });
+  markDuplicates();
+  render();
+}
+
+function markDuplicates() {
+  var seen = {};
+  files.forEach(function (f) {
+    if (seen[f.hash]) {
+      f.dupOf = seen[f.hash];
+    } else {
+      f.dupOf = null;
+      seen[f.hash] = f.name;
+    }
+  });
+  // drop matches that point to removed or duplicate files
+  Object.keys(match).forEach(function (rid) {
+    var f = getFile(match[rid]);
+    if (!f || f.dupOf) {
+      delete match[rid];
+      delete expiry[rid];
+    }
+  });
+}
+
+function getFile(id) {
+  for (var i = 0; i < files.length; i++) if (files[i].id === id) return files[i];
+  return null;
+}
+
+// ---------- Matching ----------
+function usedElsewhere(fileId, rid) {
+  return Object.keys(match).some(function (k) { return k !== rid && match[k] === fileId; });
+}
+
+function setMatch(idx, value) {
+  var rid = reqs[idx].id;
+  if (value === '') {
+    delete match[rid];
+    delete expiry[rid];
+  } else {
+    match[rid] = Number(value);
+  }
+  render();
+}
+
+function setExpiry(idx, value) {
+  var rid = reqs[idx].id;
+  if (value) expiry[rid] = value; else delete expiry[rid];
+  render();
+}
+
+// ---------- Status ----------
+function statusOf(r) {
+  var hasFile = match[r.id] !== undefined;
+  if (!hasFile) {
+    return r.mandatory ? 'missing' : 'notprovided';
+  }
+  if (r.has_expiry) {
+    var d = expiry[r.id];
+    if (!d) return 'needdate';
+    if (d < deadlineDate()) return 'expired';
+  }
+  return 'ok';
+}
+var STATUS_INFO = {
+  missing:     { label: 'stMissing',     cls: 'red',   row: 'row-red',   block: true },
+  needdate:    { label: 'stNeedDate',    cls: 'red',   row: 'row-red',   block: true },
+  expired:     { label: 'stExpired',     cls: 'red',   row: 'row-red',   block: true },
+  notprovided: { label: 'stNotProvided', cls: 'gray',  row: 'row-gray',  block: false },
+  ok:          { label: 'stOk',          cls: 'green', row: 'row-green', block: false }
+};
+
+function getBlockers() {
+  var out = [];
+  reqs.forEach(function (r) {
+    var s = statusOf(r);
+    if (STATUS_INFO[s].block) out.push(r.id + ' ' + reqTitle(r) + ' — ' + t(STATUS_INFO[s].label));
+  });
+  return out;
+}
+
+// ---------- Render ----------
+function render() {
+  // static labels
+  document.querySelectorAll('[data-i]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i')); });
+  document.getElementById('btnEn').className = lang === 'en' ? 'active' : '';
+  document.getElementById('btnBn').className = lang === 'bn' ? 'active' : '';
+  document.title = t('title');
+
+  document.getElementById('jsonMsg').innerHTML = jsonError ? '<div class="err">' + esc(t('errJson')) + '</div>' : '';
+
+  // tender header
+  var tb = document.getElementById('tenderBox');
+  if (tender) {
+    tb.innerHTML = '<table id="tenderInfo">' +
+      '<tr><td>' + t('tenderId') + '</td><td>' + esc(tender.tender_id) + '</td></tr>' +
+      '<tr><td>' + t('tTitle') + '</td><td>' + esc(tender.title) + '</td></tr>' +
+      '<tr><td>' + t('entity') + '</td><td>' + esc(tender.procuring_entity) + '</td></tr>' +
+      '<tr><td>' + t('bidder') + '</td><td>' + esc(tender.bidder) + '</td></tr>' +
+      '<tr><td>' + t('deadline') + '</td><td>' + esc(tender.submission_deadline) + '</td></tr>' +
+      '</table>';
+  } else {
+    tb.innerHTML = '';
+  }
+
+  // upload messages
+  document.getElementById('uploadMsgs').innerHTML = uploadMsgs.map(function (m) {
+    return '<div class="err">' + esc(t(m.k, m.n)) + '</div>';
+  }).join('');
+
+  // file list
+  var fl = document.getElementById('fileList');
+  if (files.length === 0) {
+    fl.innerHTML = '<p class="muted">' + t('noFiles') + '</p>';
+  } else {
+    var h = '<table><tr><th>' + t('uploaded') + '</th><th>' + t('pages') + '</th><th></th></tr>';
+    files.forEach(function (f) {
+      h += '<tr><td class="' + (f.dupOf ? 'grey-file' : '') + '">' + esc(f.name);
+      if (f.dupOf) h += ' <span class="badge orange">' + esc(t('dupOf', f.dupOf)) + '</span>';
+      h += '</td><td>' + f.pages + '</td>' +
+           '<td><button onclick="removeFile(' + f.id + ')">' + t('remove') + '</button></td></tr>';
+    });
+    fl.innerHTML = h + '</table>';
+  }
+
+  // requirements table
+  var rb = document.getElementById('reqBox');
+  if (!tender) {
+    rb.innerHTML = '';
+  } else {
+    var html = '<h2>' + t('matchReq') + '</h2><table><tr>' +
+      '<th>' + t('colOrder') + '</th><th>' + t('colId') + '</th><th>' + t('colTitle') + '</th>' +
+      '<th>' + t('colMand') + '</th><th>' + t('colExp') + '</th><th>' + t('colStatus') + '</th>' +
+      '<th>' + t('colFile') + '</th><th>' + t('colDate') + '</th></tr>';
+    reqs.forEach(function (r, idx) {
+      var s = statusOf(r);
+      var info = STATUS_INFO[s];
+      var matched = match[r.id];
+      var sel = '<select onchange="setMatch(' + idx + ', this.value)">' +
+        '<option value="">' + t('none') + '</option>';
+      files.forEach(function (f) {
+        if (f.dupOf) return;
+        if (usedElsewhere(f.id, r.id)) return;
+        sel += '<option value="' + f.id + '"' + (matched === f.id ? ' selected' : '') + '>' + esc(f.name) + '</option>';
+      });
+      sel += '</select>';
+      var dateCell = '';
+      if (r.has_expiry && matched !== undefined) {
+        dateCell = '<input type="date" value="' + esc(expiry[r.id] || '') + '" onchange="setExpiry(' + idx + ', this.value)">';
+      }
+      html += '<tr class="' + info.row + '">' +
+        '<td>' + r.order + '</td><td>' + esc(r.id) + '</td><td>' + esc(reqTitle(r)) + '</td>' +
+        '<td>' + (r.mandatory ? t('yes') : t('no')) + '</td>' +
+        '<td>' + (r.has_expiry ? t('yes') : t('no')) + '</td>' +
+        '<td><span class="badge ' + info.cls + '">' + t(info.label) + '</span></td>' +
+        '<td>' + sel + '</td><td>' + dateCell + '</td></tr>';
+    });
+    rb.innerHTML = html + '</table>';
+  }
+
+  // generate button + blockers
+  var blockers = tender ? getBlockers() : [];
+  document.getElementById('genBtn').disabled = !tender || blockers.length > 0;
+  var bl = document.getElementById('blockers');
+  if (!tender) {
+    bl.innerHTML = '<span class="muted">' + t('loadFirst') + '</span>';
+  } else if (blockers.length === 0) {
+    bl.innerHTML = '<span style="color:#2e7d32">' + t('noBlockers') + '</span>';
+  } else {
+    bl.innerHTML = t('blockers') + '<ul>' + blockers.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>';
+  }
+}
+
+// ---------- Generate PDF ----------
+// Helvetica only supports Latin-1, so replace anything else with "?"
+function safe(s) {
+  return String(s === undefined || s === null ? '' : s).replace(/[^\x20-\x7E\xA0-\xFF]/g, '?');
+}
+
+function wrapText(text, font, size, maxW) {
+  var words = safe(text).split(/\s+/);
+  var lines = [];
+  var cur = '';
+  words.forEach(function (w) {
+    var test = cur ? cur + ' ' + w : w;
+    if (cur && font.widthOfTextAtSize(test, size) > maxW) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  });
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+async function generate() {
+  var msgEl = document.getElementById('genMsg');
+  msgEl.textContent = '';
+  if (!tender || getBlockers().length > 0) return;
+  try {
+    var PL = PDFLib;
+    var out = await PL.PDFDocument.create();
+    var font = await out.embedFont(PL.StandardFonts.Helvetica);
+    var bold = await out.embedFont(PL.StandardFonts.HelveticaBold);
+
+    var included = reqs.filter(function (r) { return match[r.id] !== undefined; });
+
+    // --- Cover page ---
+    var W = 595, H = 842, M = 50;
+    var page = out.addPage([W, H]);
+    var y = H - 70;
+    function addLine(text, f, size) {
+      wrapText(text, f, size, W - 2 * M).forEach(function (l) {
+        if (y < 70) { page = out.addPage([W, H]); y = H - 70; }
+        page.drawText(l, { x: M, y: y, size: size, font: f });
+        y -= size + 6;
+      });
+    }
+    addLine('Tender Document Package', bold, 24);
+    y -= 14;
+    addLine('Tender ID: ' + tender.tender_id, font, 12);
+    addLine('Title: ' + tender.title, font, 12);
+    addLine('Procuring Entity: ' + tender.procuring_entity, font, 12);
+    addLine('Bidder: ' + tender.bidder, font, 12);
+    addLine('Submission Deadline: ' + tender.submission_deadline, font, 12);
+    addLine('Package generated: ' + todayStr(), font, 12);
+    y -= 14;
+    addLine('Included Documents:', bold, 14);
+    included.forEach(function (r) {
+      addLine(r.order + '. ' + (r.title_en || r.title_bn), font, 12);
+    });
+
+    // --- Append matched files in order ---
+    for (var i = 0; i < included.length; i++) {
+      var file = getFile(match[included[i].id]);
+      var src = await PL.PDFDocument.load(file.buffer);
+      var copied = await out.copyPages(src, src.getPageIndices());
+      copied.forEach(function (p) { out.addPage(p); });
+    }
+
+    // --- Footer on every page ---
+    var all = out.getPages();
+    var total = all.length;
+    all.forEach(function (p, idx) {
+      var text = safe(tender.tender_id) + ' | Page ' + (idx + 1) + ' of ' + total;
+      var w = font.widthOfTextAtSize(text, 10);
+      p.drawText(text, {
+        x: (p.getWidth() - w) / 2,
+        y: 14,
+        size: 10,
+        font: font,
+        color: PL.rgb(0.25, 0.25, 0.25)
+      });
+    });
+
+    // --- Download ---
+    var bytes = await out.save();
+    var blob = new Blob([bytes], { type: 'application/pdf' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = (tender.tender_id || 'Tender').replace(/[^\w\-]+/g, '_') + '_Package.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  } catch (e) {
+    msgEl.textContent = t('errGen', e.message || e);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
