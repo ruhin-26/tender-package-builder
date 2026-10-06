@@ -5,7 +5,7 @@ checked, correctly ordered tender package PDF. All processing happens in the
 browser — no files are ever uploaded to any server.
 
 ## Live Demo
-https://[your-project.vercel.app](https://tender-package-amber.vercel.app/)
+https://tender-package-amber.vercel.app/
 
 ## How to Run Locally
 1. Clone this repo
